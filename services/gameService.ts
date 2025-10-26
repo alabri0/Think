@@ -218,7 +218,6 @@ class GameService {
   }
   
   private _validateAnswersAI = async (game: Game): Promise<{ [playerId: string]: { [category: string]: boolean } }> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const validationResults: { [playerId: string]: { [category: string]: boolean } } = {};
 
     const uniqueAnswersToValidate: { answer: string; category: string }[] = [];
@@ -244,27 +243,29 @@ class GameService {
     if (uniqueAnswersToValidate.length === 0) {
         return validationResults;
     }
-
-    const properties: { [key: string]: { type: Type, description: string } } = {};
-    uniqueAnswersToValidate.forEach(item => {
-        const key = `${item.answer}|${item.category}`;
-        properties[key] = {
-            type: Type.BOOLEAN,
-            description: `Is "${item.answer}" a valid ${item.category} starting with "${game.currentLetter}"?`
-        };
-    });
-
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: properties,
-    };
     
-    const prompt = `You are an expert judge for the "Plant, Animal, Inanimate Object, Country" game.
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const properties: { [key: string]: { type: Type, description: string } } = {};
+        uniqueAnswersToValidate.forEach(item => {
+            const key = `${item.answer}|${item.category}`;
+            properties[key] = {
+                type: Type.BOOLEAN,
+                description: `Is "${item.answer}" a valid ${item.category} starting with "${game.currentLetter}"?`
+            };
+        });
+
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: properties,
+        };
+        
+        const prompt = `You are an expert judge for the "Plant, Animal, Inanimate Object, Country" game.
     For the letter "${game.currentLetter}", validate the answers provided in the schema.
     An answer is valid if it's a real thing in the correct category and starts with the letter "${game.currentLetter}". Ignore case and minor typos.
     Respond with a JSON object conforming to the provided schema.`;
 
-    try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
