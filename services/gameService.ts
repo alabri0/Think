@@ -334,7 +334,7 @@ const getGame = (): Game | null => game;
 const getCurrentPlayerId = (): string | null => localStorage.getItem(PLAYER_ID_KEY);
 
 // --- Connection Logic ---
-const _connect = (gameCode: string, onConnect: () => void): Promise<void> => {
+const _connect = (gameCode: string, playerId: string, onConnect: () => void): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (client && client.connected) {
         onConnect();
@@ -342,12 +342,20 @@ const _connect = (gameCode: string, onConnect: () => void): Promise<void> => {
         return;
     }
 
-    const options = { keepalive: 120, reconnectPeriod: 2000, connectTimeout: 30 * 1000 };
+    const options = {
+        // Fix: Provide a unique clientId to prevent connection issues and "Not Authorized" errors.
+        clientId: `${TOPIC_PREFIX}-${gameCode}-${playerId}-${Date.now()}`,
+        keepalive: 120,
+        reconnectPeriod: 2000,
+        connectTimeout: 30 * 1000,
+        clean: true, // Start with a clean session, don't resume old ones.
+    };
     const newClient = mqtt.connect(MQTT_BROKER_URL, options);
 
     newClient.on('connect', () => {
       client = newClient;
       localStorage.setItem(GAME_CODE_KEY, gameCode);
+      // Ensure we don't have duplicate listeners from previous connection attempts
       client.removeListener('message', _onMessage);
       client.on('message', _onMessage);
       onConnect();
@@ -356,7 +364,11 @@ const _connect = (gameCode: string, onConnect: () => void): Promise<void> => {
 
     newClient.on('error', (err) => {
       console.error('MQTT Connection Error:', err);
-      alert('لا يمكن الاتصال بالخادم. الرجاء المحاولة مرة أخرى.');
+      if (err.message.includes('Not authorized')) {
+        alert('حدث خطأ في المصادقة. قد يكون رمز اللعبة غير صحيح أو هناك مشكلة في الشبكة.');
+      } else {
+        alert('لا يمكن الاتصال بالخادم. الرجاء المحاولة مرة أخرى.');
+      }
       newClient.end();
       client = null;
       reject(err);
@@ -379,7 +391,7 @@ const createGame = async (playerName: string): Promise<void> => {
         totalRounds: 5, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {},
     };
 
-    await _connect(gameCode, () => {
+    await _connect(gameCode, playerId, () => {
         client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/host-actions`, { qos: 1 });
         client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/state`, { qos: 1 });
     });
@@ -390,7 +402,7 @@ const createGame = async (playerName: string): Promise<void> => {
 const joinGame = async (gameCode: string, playerName: string): Promise<void> => {
     const playerId = _generatePlayerId();
     
-    await _connect(gameCode, () => {
+    await _connect(gameCode, playerId, () => {
         client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/state`, { qos: 1 });
         
         const newPlayer: Player = {
@@ -398,11 +410,12 @@ const joinGame = async (gameCode: string, playerName: string): Promise<void> => 
             avatarUrl: `https://api.dicebear.com/8.x/bottts-neutral/svg?seed=${playerId}`
         };
         
+        // This is a temporary state for the joining player until they get the full state from the host
         game = {
             gameCode, gameState: GameState.LOBBY, players: [newPlayer], categories: [], 
             totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
         };
-        _notify();
+        _notify(); // Show the lobby immediately
         _publishAction({ type: 'PLAYER_JOIN', payload: newPlayer });
     });
 };
@@ -417,7 +430,7 @@ const leaveGame = () => {
             game = null;
             localStorage.removeItem(GAME_CODE_KEY);
             _notify();
-        }, 500);
+        }, 500); // Give time for the message to be sent
     } else {
         client?.end();
         client = null;
