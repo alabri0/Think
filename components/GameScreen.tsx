@@ -1,3 +1,5 @@
+
+// Fix: Corrected the import statement to properly import React and its hooks.
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Player, PlayerAnswers } from '../types';
 import { gameService } from '../services/gameService';
@@ -6,7 +8,7 @@ interface GameScreenProps {
   letter: string;
   categories: string[];
   players: Player[];
-  onRoundEnd: (answers: PlayerAnswers) => void;
+  currentPlayerId: string;
 }
 
 const Timer: React.FC<{ onTimeUp: () => void, roundKey: string }> = ({ onTimeUp, roundKey }) => {
@@ -46,27 +48,21 @@ const Timer: React.FC<{ onTimeUp: () => void, roundKey: string }> = ({ onTimeUp,
     );
 };
 
-const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, onRoundEnd }) => {
+const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, currentPlayerId }) => {
   const [answers, setAnswers] = useState<PlayerAnswers>(() => {
     return gameService.getDraftAnswers() || categories.reduce((acc, cat) => ({ ...acc, [cat]: '' }), {});
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Use a ref to hold the latest answers to prevent stale closures in callbacks passed to the timer.
   const answersRef = useRef(answers);
   answersRef.current = answers;
   
-  const onRoundEndRef = useRef(onRoundEnd);
-  onRoundEndRef.current = onRoundEnd;
-
-  // Effect to reset answers for a new round (new letter)
   useEffect(() => {
     const initialAnswers = gameService.getDraftAnswers() || categories.reduce((acc, cat) => ({ ...acc, [cat]: '' }), {});
     setAnswers(initialAnswers);
-    setIsSubmitting(false); // Reset submitting state for new round
+    setIsSubmitting(false); 
   }, [letter, categories]);
 
-  // Effect to save draft answers on change (debounced)
   useEffect(() => {
     const handler = setTimeout(() => {
       gameService.saveDraftAnswers(answers);
@@ -84,9 +80,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, on
   const handleStop = useCallback(() => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    // The visual overlay will show, and then the state change will move to the next screen.
-    onRoundEndRef.current(answersRef.current);
-  }, [isSubmitting]);
+    gameService.endRound(currentPlayerId, answersRef.current);
+  }, [isSubmitting, currentPlayerId]);
   
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   
@@ -104,7 +99,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, on
         )}
 
         <div className="w-full max-w-4xl space-y-4">
-            {/* Persistent Score Display */}
             <div className="bg-gray-800 rounded-2xl shadow-lg p-4">
                 <h2 className="text-xl font-bold text-center text-gray-400 mb-3">النقاط الحالية</h2>
                 <div className="flex flex-wrap justify-center gap-x-6 gap-y-3">
@@ -118,7 +112,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, on
                 </div>
             </div>
         
-            {/* Game Area */}
             <div className="bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 space-y-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div>

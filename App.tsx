@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, Game, Player } from './types';
 import { gameService } from './services/gameService';
@@ -64,7 +65,7 @@ const App: React.FC = () => {
                   letter={game.currentLetter} 
                   categories={game.categories} 
                   players={game.players}
-                  onRoundEnd={(answers) => gameService.endRound(currentPlayer.id, answers)}
+                  currentPlayerId={currentPlayer.id}
                 />;
       case GameState.SCORING:
         return <ScoringScreen 
