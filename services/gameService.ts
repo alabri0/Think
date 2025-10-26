@@ -4,8 +4,6 @@ import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Real-time Multiplayer Configuration ---
-// Using a public MQTT broker for simplicity. For a production application,
-// it's recommended to set up a private, secure MQTT broker.
 const MQTT_BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt';
 const TOPIC_PREFIX = 'insaan-hayawaan-v2';
 
@@ -49,11 +47,9 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    // Ensure API_KEY is handled safely
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
         console.error("API_KEY is not set.");
-        // Return a zero-score result if AI cannot be used
         const roundScores: RoundScores = {};
         const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
         Object.keys(roundData).forEach(playerId => {
@@ -134,11 +130,10 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
             }
         });
 
-        const validationData = JSON.parse(response.text).results;
-
+        // Fix: Added .trim() to response text before parsing to handle potential leading/trailing whitespace.
+        const validationData = JSON.parse(response.text.trim()).results;
         const roundScores: RoundScores = {};
         const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
-
         Object.keys(roundData).forEach(pid => {
             roundScores[pid] = 0;
             validationDetails[pid] = {};
@@ -167,67 +162,20 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
     }
 };
 
-
-// --- Subscription Management ---
-const subscribe = (callback: (game: Game | null) => void) => {
-  subscribers.push(callback);
-};
-
-const unsubscribe = (callback: (game: Game | null) => void) => {
-  subscribers = subscribers.filter(cb => cb !== callback);
-};
-
-// --- Game State Access ---
-const getGame = (): Game | null => game;
-const getCurrentPlayerId = (): string | null => localStorage.getItem(PLAYER_ID_KEY);
-
-// --- Connection Logic ---
-const _connect = (gameCode: string, onConnect: () => void): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (client && client.connected) {
-        onConnect();
-        resolve();
-        return;
-    }
-
-    const options = {
-        keepalive: 120,
-        reconnectPeriod: 2000,
-        connectTimeout: 30 * 1000,
-    };
-
-    const newClient = mqtt.connect(MQTT_BROKER_URL, options);
-
-    newClient.on('connect', () => {
-      client = newClient;
-      localStorage.setItem(GAME_CODE_KEY, gameCode);
-      onConnect();
-      resolve();
-    });
-
-    newClient.on('error', (err) => {
-      console.error('MQTT Connection Error:', err);
-      alert('لا يمكن الاتصال بالخادم. الرجاء المحاولة مرة أخرى.');
-      newClient.end();
-      client = null;
-      reject(err);
-    });
-  });
-};
-
+// --- Message Handlers ---
 const _handleHostActions = async (topic: string, message: any) => {
     try {
         const action = JSON.parse(message.toString());
         if (!game || !game.players.find(p => p.id === getCurrentPlayerId())?.isHost) return;
 
         let needsStateUpdate = true;
-        let newGame: Game | null = { ...game }; // Create a new object reference
+        let newGame: Game = { ...game }; 
 
         switch (action.type) {
             case 'PLAYER_JOIN': {
                 const newPlayer = action.payload as Player;
                 if (!newGame.players.some(p => p.id === newPlayer.id)) {
-                    newGame.players = [...newGame.players, newPlayer]; // Create new players array
+                    newGame.players = [...newGame.players, newPlayer];
                 }
                 break;
             }
@@ -268,13 +216,11 @@ const _handleHostActions = async (topic: string, message: any) => {
 
                 if (allSubmitted) {
                     newGame.gameState = GameState.SCORING;
-                    game = newGame; // Update state immediately for spinner
-                     _notify();
-                    _publishState(); // Publish scoring state so clients also see spinner
+                    game = newGame;
+                    _publishState(); 
 
                     const { roundScores, validationDetails } = await _validateAnswers(game.roundData, game.categories, game.currentLetter);
                     
-                    // After async, create the final new game state from the latest version
                     const finalGame = { ...game };
                     finalGame.lastRoundScores = roundScores;
                     finalGame.roundValidation = validationDetails;
@@ -282,7 +228,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                         ...p,
                         score: p.score + (roundScores[p.id] || 0)
                     }));
-                    newGame = finalGame; // Set the final state
+                    newGame = finalGame;
                 }
                 break;
             }
@@ -317,10 +263,8 @@ const _handleHostActions = async (topic: string, message: any) => {
             case 'PLAYER_LEAVE': {
                 const { playerId } = action.payload;
                 if (newGame.players.find(p => p.id === playerId)?.isHost) {
-                    // Host is leaving. Set a terminal state to broadcast to clients.
                     newGame.gameState = GameState.HOME;
                 } else {
-                    // A client is leaving. Just remove them from the list.
                     newGame.players = newGame.players.filter(p => p.id !== playerId);
                 }
                 break;
@@ -329,12 +273,11 @@ const _handleHostActions = async (topic: string, message: any) => {
                 needsStateUpdate = false;
         }
         
-        game = newGame; // Atomically assign the new game object
+        game = newGame;
 
-        if (needsStateUpdate && game) {
+        if (needsStateUpdate) {
             _publishState();
         }
-        _notify();
     } catch(e) {
         console.error("Error handling host action:", e);
     }
@@ -344,7 +287,6 @@ const _handleStateUpdate = (topic: string, message: any) => {
     try {
         const updatedGame = JSON.parse(message.toString()) as Game;
 
-        // Handle game-over signal from host
         if (updatedGame.gameState === GameState.HOME) {
             alert('انتهت اللعبة لأن المضيف غادر.');
             client?.end();
@@ -355,18 +297,72 @@ const _handleStateUpdate = (topic: string, message: any) => {
             return;
         }
         
-        const currentPlayerId = getCurrentPlayerId();
-        const isHost = updatedGame.players.some(p => p.id === currentPlayerId && p.isHost);
-        
-        // Non-hosts always accept the state from the host
-        if (!isHost) {
-            game = updatedGame;
-            _notify();
-        }
+        game = updatedGame;
+        _notify();
     } catch (e) {
         console.error("Error processing game state update:", e);
     }
 }
+
+// Fix: Replaced 'Buffer' with 'any' to resolve TypeScript error in a browser environment
+// where the 'Buffer' type is not globally available by default. This change makes the
+// function signature consistent with `_handleHostActions` and `_handleStateUpdate`.
+const _onMessage = (topic: string, message: any) => {
+    const gameCode = localStorage.getItem(GAME_CODE_KEY);
+    if (!gameCode) return;
+
+    const stateTopic = `${TOPIC_PREFIX}/${gameCode}/state`;
+    const actionTopic = `${TOPIC_PREFIX}/${gameCode}/host-actions`;
+    
+    if (topic === actionTopic) {
+        const isHost = !!game?.players.find(p => p.id === getCurrentPlayerId() && p.isHost);
+        if (isHost) {
+            _handleHostActions(topic, message);
+        }
+    } 
+    else if (topic === stateTopic) {
+        _handleStateUpdate(topic, message);
+    }
+};
+
+// --- Subscription Management ---
+const subscribe = (callback: (game: Game | null) => void) => { subscribers.push(callback); };
+const unsubscribe = (callback: (game: Game | null) => void) => { subscribers = subscribers.filter(cb => cb !== callback); };
+
+// --- Game State Access ---
+const getGame = (): Game | null => game;
+const getCurrentPlayerId = (): string | null => localStorage.getItem(PLAYER_ID_KEY);
+
+// --- Connection Logic ---
+const _connect = (gameCode: string, onConnect: () => void): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (client && client.connected) {
+        onConnect();
+        resolve();
+        return;
+    }
+
+    const options = { keepalive: 120, reconnectPeriod: 2000, connectTimeout: 30 * 1000 };
+    const newClient = mqtt.connect(MQTT_BROKER_URL, options);
+
+    newClient.on('connect', () => {
+      client = newClient;
+      localStorage.setItem(GAME_CODE_KEY, gameCode);
+      client.removeListener('message', _onMessage);
+      client.on('message', _onMessage);
+      onConnect();
+      resolve();
+    });
+
+    newClient.on('error', (err) => {
+      console.error('MQTT Connection Error:', err);
+      alert('لا يمكن الاتصال بالخادم. الرجاء المحاولة مرة أخرى.');
+      newClient.end();
+      client = null;
+      reject(err);
+    });
+  });
+};
 
 // --- Public API ---
 const createGame = async (playerName: string): Promise<void> => {
@@ -374,29 +370,18 @@ const createGame = async (playerName: string): Promise<void> => {
     const playerId = _generatePlayerId();
 
     const hostPlayer: Player = {
-        id: playerId,
-        name: playerName,
-        score: 0,
-        isHost: true,
-        answersSubmitted: false,
+        id: playerId, name: playerName, score: 0, isHost: true, answersSubmitted: false,
         avatarUrl: `https://api.dicebear.com/8.x/bottts-neutral/svg?seed=${playerId}`
     };
 
     game = {
-        gameCode,
-        gameState: GameState.LOBBY,
-        players: [hostPlayer],
-        categories: CORE_CATEGORIES,
-        totalRounds: 5,
-        currentRound: 0,
-        currentLetter: '',
-        usedLetters: [],
-        roundData: {},
+        gameCode, gameState: GameState.LOBBY, players: [hostPlayer], categories: CORE_CATEGORIES,
+        totalRounds: 5, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {},
     };
 
     await _connect(gameCode, () => {
         client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/host-actions`, { qos: 1 });
-        client?.on('message', _handleHostActions);
+        client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/state`, { qos: 1 });
     });
     
     _notify();
@@ -407,24 +392,17 @@ const joinGame = async (gameCode: string, playerName: string): Promise<void> => 
     
     await _connect(gameCode, () => {
         client?.subscribe(`${TOPIC_PREFIX}/${gameCode}/state`, { qos: 1 });
-        client?.on('message', _handleStateUpdate);
         
         const newPlayer: Player = {
-            id: playerId,
-            name: playerName,
-            score: 0,
-            isHost: false,
-            answersSubmitted: false,
+            id: playerId, name: playerName, score: 0, isHost: false, answersSubmitted: false,
             avatarUrl: `https://api.dicebear.com/8.x/bottts-neutral/svg?seed=${playerId}`
         };
-        // Set a temporary game object until we get the state from the host
+        
         game = {
-            gameCode,
-            gameState: GameState.LOBBY,
-            players: [newPlayer],
-            categories: [], totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
+            gameCode, gameState: GameState.LOBBY, players: [newPlayer], categories: [], 
+            totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
         };
-        _notify(); // Notify the UI immediately with the temporary state
+        _notify();
         _publishAction({ type: 'PLAYER_JOIN', payload: newPlayer });
     });
 };
@@ -433,7 +411,6 @@ const leaveGame = () => {
     const playerId = getCurrentPlayerId();
     if (playerId && client?.connected) {
         _publishAction({ type: 'PLAYER_LEAVE', payload: { playerId }});
-        // Delay disconnection to allow the final message to be sent.
         setTimeout(() => {
             client?.end();
             client = null;
@@ -442,7 +419,6 @@ const leaveGame = () => {
             _notify();
         }, 500);
     } else {
-        // If not connected or already leaving, just clean up locally.
         client?.end();
         client = null;
         game = null;
@@ -458,19 +434,13 @@ const updatePlayerAvatar = (avatarUrl: string) => {
     }
 };
 
-const updateSettings = (settings: { rounds?: number; categories?: string[] }) => {
-    _publishAction({ type: 'UPDATE_SETTINGS', payload: settings });
-};
-
+const updateSettings = (settings: { rounds?: number; categories?: string[] }) => _publishAction({ type: 'UPDATE_SETTINGS', payload: settings });
 const startGame = () => _publishAction({ type: 'START_GAME' });
 const chooseLetter = (letter: string) => _publishAction({ type: 'CHOOSE_LETTER', payload: { letter }});
 const nextRound = () => _publishAction({ type: 'NEXT_ROUND' });
 const endGame = () => _publishAction({ type: 'END_GAME' });
 const playAgain = () => _publishAction({ type: 'PLAY_AGAIN' });
-
-const endRound = (playerId: string, answers: PlayerAnswers) => {
-    _publishAction({ type: 'END_ROUND', payload: { playerId, answers } });
-};
+const endRound = (playerId: string, answers: PlayerAnswers) => _publishAction({ type: 'END_ROUND', payload: { playerId, answers } });
 
 // --- Local Drafts ---
 const saveDraftAnswers = (answers: PlayerAnswers) => {
