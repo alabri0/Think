@@ -1,3 +1,4 @@
+
 import mqtt from 'mqtt';
 import { Game, GameState, Player, PlayerAnswers, RoundData, RoundScores, ValidationResult } from '../types';
 import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
@@ -169,7 +170,7 @@ const _handleHostActions = async (topic: string, message: any) => {
         if (!game || !game.players.find(p => p.id === getCurrentPlayerId())?.isHost) return;
 
         let needsStateUpdate = true;
-        let newGame: Game = { ...game }; 
+        let newGame: Game = JSON.parse(JSON.stringify(game)); // Deep copy to avoid mutation issues
 
         switch (action.type) {
             case 'PLAYER_JOIN': {
@@ -207,17 +208,24 @@ const _handleHostActions = async (topic: string, message: any) => {
             case 'END_ROUND': {
                 const { playerId, answers } = action.payload;
                 const player = newGame.players.find(p => p.id === playerId);
+
                 if (player && !player.answersSubmitted) {
                     newGame.players = newGame.players.map(p => p.id === playerId ? { ...p, answersSubmitted: true } : p);
                     newGame.roundData = { ...newGame.roundData, [playerId]: answers };
+
+                    // If this is the first submission for the round, transition to SCORING
+                    // This signals all other clients to submit their answers.
+                    if (game?.gameState === GameState.PLAYING) {
+                        newGame.gameState = GameState.SCORING;
+                    }
                 }
 
                 const allSubmitted = newGame.players.every(p => p.answersSubmitted);
 
                 if (allSubmitted) {
-                    newGame.gameState = GameState.SCORING;
+                    newGame.gameState = GameState.SCORING; // Ensure we're in scoring state
                     game = newGame;
-                    _publishState(); 
+                    _publishState(); // Publish state showing all players submitted, before validation
 
                     const { roundScores, validationDetails } = await _validateAnswers(game.roundData, game.categories, game.currentLetter);
                     
@@ -263,7 +271,12 @@ const _handleHostActions = async (topic: string, message: any) => {
             case 'PLAYER_LEAVE': {
                 const { playerId } = action.payload;
                 if (newGame.players.find(p => p.id === playerId)?.isHost) {
-                    newGame.gameState = GameState.HOME;
+                    // Host left, end the game for everyone
+                    // Setting a special state to signal clients to disconnect
+                    client?.publish(`${TOPIC_PREFIX}/${game.gameCode}/state`, JSON.stringify({ ...newGame, gameState: GameState.HOME }));
+                    game = null; // Host clears its own game state
+                    _notify();
+                    return; // Exit early
                 } else {
                     newGame.players = newGame.players.filter(p => p.id !== playerId);
                 }
@@ -282,6 +295,7 @@ const _handleHostActions = async (topic: string, message: any) => {
         console.error("Error handling host action:", e);
     }
 }
+
 
 const _handleStateUpdate = (topic: string, message: any) => {
     try {
@@ -425,14 +439,15 @@ const leaveGame = () => {
     if (playerId && client?.connected) {
         _publishAction({ type: 'PLAYER_LEAVE', payload: { playerId }});
         setTimeout(() => {
-            client?.end();
-            client = null;
-            game = null;
-            localStorage.removeItem(GAME_CODE_KEY);
-            _notify();
+            client?.end(true, () => {
+              client = null;
+              game = null;
+              localStorage.removeItem(GAME_CODE_KEY);
+              _notify();
+            });
         }, 500); // Give time for the message to be sent
     } else {
-        client?.end();
+        client?.end(true);
         client = null;
         game = null;
         localStorage.removeItem(GAME_CODE_KEY);

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { GameState, Game, Player } from './types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { GameState, Game, Player, PlayerAnswers } from './types';
 import { gameService } from './services/gameService';
 import HomeScreen from './components/HomeScreen';
 import LobbyScreen from './components/SetupScreen';
@@ -12,9 +12,32 @@ import WinnerScreen from './components/WinnerScreen';
 const App: React.FC = () => {
   const [game, setGame] = useState<Game | null>(null);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const gameRef = useRef(game);
+  gameRef.current = game;
 
   useEffect(() => {
     const handleGameUpdate = (newGame: Game | null) => {
+      const oldGame = gameRef.current;
+      const currentPlayer = newGame?.players.find(p => p.id === gameService.getCurrentPlayerId());
+      
+      // If the game transitions from PLAYING to SCORING, and this player hasn't submitted yet,
+      // it means another player stopped the round. We must submit this player's answers automatically.
+      if (
+        oldGame?.gameState === GameState.PLAYING && 
+        newGame?.gameState === GameState.SCORING &&
+        currentPlayer && !currentPlayer.answersSubmitted
+      ) {
+          const draftAnswers = gameService.getDraftAnswers() || {};
+          const allCategories = newGame?.categories || [];
+          
+          const finalAnswers: PlayerAnswers = allCategories.reduce((acc, cat) => {
+              acc[cat] = draftAnswers[cat] || '';
+              return acc;
+          }, {} as PlayerAnswers);
+          
+          gameService.endRound(currentPlayer.id, finalAnswers);
+      }
+
       setGame(newGame);
       setCurrentPlayerId(gameService.getCurrentPlayerId());
     };
