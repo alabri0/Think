@@ -1,4 +1,3 @@
-
 import mqtt from 'mqtt';
 import { Game, GameState, Player, PlayerAnswers, RoundData, RoundScores, ValidationResult } from '../types';
 import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
@@ -318,12 +317,10 @@ const _handleHostActions = async (topic: string, message: any) => {
             case 'PLAYER_LEAVE': {
                 const { playerId } = action.payload;
                 if (newGame.players.find(p => p.id === playerId)?.isHost) {
-                    alert('المضيف غادر اللعبة. ستنتهي اللعبة.');
-                    newGame = null;
-                    localStorage.removeItem(GAME_CODE_KEY);
-                    client?.end();
-                    client = null;
+                    // Host is leaving. Set a terminal state to broadcast to clients.
+                    newGame.gameState = GameState.HOME;
                 } else {
+                    // A client is leaving. Just remove them from the list.
                     newGame.players = newGame.players.filter(p => p.id !== playerId);
                 }
                 break;
@@ -346,6 +343,18 @@ const _handleHostActions = async (topic: string, message: any) => {
 const _handleStateUpdate = (topic: string, message: any) => {
     try {
         const updatedGame = JSON.parse(message.toString()) as Game;
+
+        // Handle game-over signal from host
+        if (updatedGame.gameState === GameState.HOME) {
+            alert('انتهت اللعبة لأن المضيف غادر.');
+            client?.end();
+            client = null;
+            game = null;
+            localStorage.removeItem(GAME_CODE_KEY);
+            _notify();
+            return;
+        }
+        
         const currentPlayerId = getCurrentPlayerId();
         const isHost = updatedGame.players.some(p => p.id === currentPlayerId && p.isHost);
         
@@ -415,20 +424,31 @@ const joinGame = async (gameCode: string, playerName: string): Promise<void> => 
             players: [newPlayer],
             categories: [], totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
         };
+        _notify(); // Notify the UI immediately with the temporary state
         _publishAction({ type: 'PLAYER_JOIN', payload: newPlayer });
     });
 };
 
 const leaveGame = () => {
     const playerId = getCurrentPlayerId();
-    if (playerId) {
+    if (playerId && client?.connected) {
         _publishAction({ type: 'PLAYER_LEAVE', payload: { playerId }});
+        // Delay disconnection to allow the final message to be sent.
+        setTimeout(() => {
+            client?.end();
+            client = null;
+            game = null;
+            localStorage.removeItem(GAME_CODE_KEY);
+            _notify();
+        }, 500);
+    } else {
+        // If not connected or already leaving, just clean up locally.
+        client?.end();
+        client = null;
+        game = null;
+        localStorage.removeItem(GAME_CODE_KEY);
+        _notify();
     }
-    client?.end();
-    client = null;
-    game = null;
-    localStorage.removeItem(GAME_CODE_KEY);
-    _notify();
 };
 
 const updatePlayerAvatar = (avatarUrl: string) => {
@@ -474,7 +494,6 @@ export const gameService = {
   createGame,
   joinGame,
   leaveGame,
-  updatePlayerAvatar,
   updateSettings,
   startGame,
   chooseLetter,
@@ -484,4 +503,5 @@ export const gameService = {
   playAgain,
   saveDraftAnswers,
   getDraftAnswers,
+  updatePlayerAvatar,
 };
