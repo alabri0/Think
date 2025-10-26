@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Game, Player } from '../types';
-// Fix: Import gameService to handle ending the game.
 import { gameService } from '../services/gameService';
 
 interface ScoringScreenProps {
@@ -11,9 +10,32 @@ interface ScoringScreenProps {
 
 const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNextRound }) => {
   const [isConfirmingEndGame, setIsConfirmingEndGame] = useState(false);
+  const [overrideTarget, setOverrideTarget] = useState<{ playerId: string; category: string } | null>(null);
+  const longPressTimer = useRef<number>();
+
+  const handlePressStart = (playerId: string, category: string) => {
+    // Only host can override, and only on non-empty answers that have been validated
+    if (!currentPlayer.isHost || !game.roundData[playerId]?.[category] || !game.roundValidation?.[playerId]?.[category]) return;
+
+    handlePressEnd(); // Clear any existing timer
+    longPressTimer.current = window.setTimeout(() => {
+      setOverrideTarget({ playerId, category });
+    }, 700);
+  };
+
+  const handlePressEnd = () => {
+    clearTimeout(longPressTimer.current);
+  };
+
+  const handleScoreOverride = (newScore: 10 | 5 | 0) => {
+    if (overrideTarget) {
+      gameService.manualOverrideScore(overrideTarget.playerId, overrideTarget.category, newScore);
+      setOverrideTarget(null);
+    }
+  };
+
   const scoresCalculated = !!game.lastRoundScores && Object.keys(game.lastRoundScores).length > 0;
 
-  // When the round ends, all answers are submitted at once, so we go directly to AI validation.
   if (!scoresCalculated) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 sm:p-6">
@@ -62,6 +84,10 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
                                 let cellStyle = 'p-3 transition-colors duration-300';
                                 let icon = null;
 
+                                if (currentPlayer.isHost && answer !== '—' && validationResult) {
+                                  cellStyle += ' cursor-pointer hover:bg-gray-600/50';
+                                }
+
                                 if (answer !== '—' && validationResult) {
                                   if (validationResult.score === 10) {
                                     cellStyle += ' bg-green-500/20';
@@ -76,7 +102,15 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
                                 }
 
                                 return (
-                                  <td key={category} className={cellStyle}>
+                                  <td 
+                                    key={category} 
+                                    className={cellStyle}
+                                    onMouseDown={() => handlePressStart(player.id, category)}
+                                    onMouseUp={handlePressEnd}
+                                    onMouseLeave={handlePressEnd}
+                                    onTouchStart={() => handlePressStart(player.id, category)}
+                                    onTouchEnd={handlePressEnd}
+                                  >
                                     <div className="flex items-center justify-end gap-2">
                                         <span>{answer}</span>
                                         {icon && <span>{icon}</span>}
@@ -163,6 +197,42 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
           </div>
         </div>
       )}
+
+      {overrideTarget && (() => {
+        const targetPlayer = game.players.find(p => p.id === overrideTarget.playerId);
+        const targetAnswer = game.roundData[overrideTarget.playerId]?.[overrideTarget.category];
+        const currentValidation = game.roundValidation?.[overrideTarget.playerId]?.[overrideTarget.category];
+
+        if (!targetPlayer || !targetAnswer) return null;
+
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 animate-fade-in-down" onClick={() => setOverrideTarget(null)}>
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6 space-y-5 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <h2 className="text-2xl font-bold text-yellow-400 text-center">تعديل النتيجة</h2>
+              <div className="text-right bg-gray-700/50 p-4 rounded-lg space-y-2">
+                <p><span className="font-semibold text-gray-400">اللاعب:</span> <span className="font-bold">{targetPlayer.name}</span></p>
+                <p><span className="font-semibold text-gray-400">الفئة:</span> <span className="font-bold">{overrideTarget.category}</span></p>
+                <p><span className="font-semibold text-gray-400">الإجابة:</span> <span className="font-bold text-2xl text-cyan-300">"{targetAnswer}"</span></p>
+                <p><span className="font-semibold text-gray-400">التقييم الحالي:</span> <span className="font-bold">{currentValidation?.score ?? 0} نقطة</span></p>
+              </div>
+              <div className="flex flex-col gap-3 pt-2">
+                <button onClick={() => handleScoreOverride(10)} className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-lg font-bold transition-transform transform hover:scale-105">
+                  صحيحة وفريدة (10 نقاط) ⭐
+                </button>
+                <button onClick={() => handleScoreOverride(5)} className="w-full px-6 py-3 bg-yellow-500 hover:bg-yellow-600 rounded-lg text-lg font-bold transition-transform transform hover:scale-105">
+                  صحيحة ومكررة (5 نقاط) ✅
+                </button>
+                <button onClick={() => handleScoreOverride(0)} className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-lg font-bold transition-transform transform hover:scale-105">
+                  خاطئة (0 نقاط) ❌
+                </button>
+                <button onClick={() => setOverrideTarget(null)} className="w-full px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-lg font-bold transition-transform transform hover:scale-105 mt-2">
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import mqtt from 'mqtt';
 import { Game, GameState, Player, PlayerAnswers, RoundData, RoundScores, ValidationResult } from '../types';
 import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
@@ -131,7 +130,6 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
             }
         });
 
-        // Fix: Added .trim() to response text before parsing to handle potential leading/trailing whitespace.
         const validationData = JSON.parse(response.text.trim()).results;
         const roundScores: RoundScores = {};
         const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
@@ -213,8 +211,6 @@ const _handleHostActions = async (topic: string, message: any) => {
                     newGame.players = newGame.players.map(p => p.id === playerId ? { ...p, answersSubmitted: true } : p);
                     newGame.roundData = { ...newGame.roundData, [playerId]: answers };
 
-                    // If this is the first submission for the round, transition to SCORING
-                    // This signals all other clients to submit their answers.
                     if (game?.gameState === GameState.PLAYING) {
                         newGame.gameState = GameState.SCORING;
                     }
@@ -223,9 +219,9 @@ const _handleHostActions = async (topic: string, message: any) => {
                 const allSubmitted = newGame.players.every(p => p.answersSubmitted);
 
                 if (allSubmitted) {
-                    newGame.gameState = GameState.SCORING; // Ensure we're in scoring state
+                    newGame.gameState = GameState.SCORING; 
                     game = newGame;
-                    _publishState(); // Publish state showing all players submitted, before validation
+                    _publishState(); 
 
                     const { roundScores, validationDetails } = await _validateAnswers(game.roundData, game.categories, game.currentLetter);
                     
@@ -253,6 +249,36 @@ const _handleHostActions = async (topic: string, message: any) => {
                 }
                 break;
             }
+            case 'MANUAL_OVERRIDE_SCORE': {
+                const { playerId, category, newScore } = action.payload;
+                const player = newGame.players.find(p => p.id === playerId);
+                const validation = newGame.roundValidation?.[playerId]?.[category];
+
+                if (player && validation) {
+                    const oldScore = validation.score;
+                    const scoreDifference = newScore - oldScore;
+
+                    if (scoreDifference === 0) {
+                        needsStateUpdate = false;
+                        break;
+                    }
+                    
+                    newGame.roundValidation[playerId][category] = {
+                        isValid: newScore > 0,
+                        score: newScore,
+                    };
+
+                    if (!newGame.lastRoundScores) newGame.lastRoundScores = {};
+                    newGame.lastRoundScores[playerId] = (newGame.lastRoundScores[playerId] || 0) + scoreDifference;
+                    
+                    newGame.players = newGame.players.map(p =>
+                        p.id === playerId ? { ...p, score: p.score + scoreDifference } : p
+                    );
+                } else {
+                    needsStateUpdate = false; 
+                }
+                break;
+            }
             case 'END_GAME': {
                  newGame.gameState = GameState.WINNER;
                  break;
@@ -271,12 +297,10 @@ const _handleHostActions = async (topic: string, message: any) => {
             case 'PLAYER_LEAVE': {
                 const { playerId } = action.payload;
                 if (newGame.players.find(p => p.id === playerId)?.isHost) {
-                    // Host left, end the game for everyone
-                    // Setting a special state to signal clients to disconnect
                     client?.publish(`${TOPIC_PREFIX}/${game.gameCode}/state`, JSON.stringify({ ...newGame, gameState: GameState.HOME }));
-                    game = null; // Host clears its own game state
+                    game = null; 
                     _notify();
-                    return; // Exit early
+                    return; 
                 } else {
                     newGame.players = newGame.players.filter(p => p.id !== playerId);
                 }
@@ -318,9 +342,6 @@ const _handleStateUpdate = (topic: string, message: any) => {
     }
 }
 
-// Fix: Replaced 'Buffer' with 'any' to resolve TypeScript error in a browser environment
-// where the 'Buffer' type is not globally available by default. This change makes the
-// function signature consistent with `_handleHostActions` and `_handleStateUpdate`.
 const _onMessage = (topic: string, message: any) => {
     const gameCode = localStorage.getItem(GAME_CODE_KEY);
     if (!gameCode) return;
@@ -357,19 +378,17 @@ const _connect = (gameCode: string, playerId: string, onConnect: () => void): Pr
     }
 
     const options = {
-        // Fix: Provide a unique clientId to prevent connection issues and "Not Authorized" errors.
         clientId: `${TOPIC_PREFIX}-${gameCode}-${playerId}-${Date.now()}`,
         keepalive: 120,
         reconnectPeriod: 2000,
         connectTimeout: 30 * 1000,
-        clean: true, // Start with a clean session, don't resume old ones.
+        clean: true,
     };
     const newClient = mqtt.connect(MQTT_BROKER_URL, options);
 
     newClient.on('connect', () => {
       client = newClient;
       localStorage.setItem(GAME_CODE_KEY, gameCode);
-      // Ensure we don't have duplicate listeners from previous connection attempts
       client.removeListener('message', _onMessage);
       client.on('message', _onMessage);
       onConnect();
@@ -424,12 +443,11 @@ const joinGame = async (gameCode: string, playerName: string): Promise<void> => 
             avatarUrl: `https://api.dicebear.com/8.x/bottts-neutral/svg?seed=${playerId}`
         };
         
-        // This is a temporary state for the joining player until they get the full state from the host
         game = {
             gameCode, gameState: GameState.LOBBY, players: [newPlayer], categories: [], 
             totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
         };
-        _notify(); // Show the lobby immediately
+        _notify();
         _publishAction({ type: 'PLAYER_JOIN', payload: newPlayer });
     });
 };
@@ -445,7 +463,7 @@ const leaveGame = () => {
               localStorage.removeItem(GAME_CODE_KEY);
               _notify();
             });
-        }, 500); // Give time for the message to be sent
+        }, 500); 
     } else {
         client?.end(true);
         client = null;
@@ -460,6 +478,10 @@ const updatePlayerAvatar = (avatarUrl: string) => {
     if(playerId) {
          _publishAction({ type: 'UPDATE_AVATAR', payload: { playerId, avatarUrl }});
     }
+};
+
+const manualOverrideScore = (playerId: string, category: string, newScore: 10 | 5 | 0) => {
+    _publishAction({ type: 'MANUAL_OVERRIDE_SCORE', payload: { playerId, category, newScore } });
 };
 
 const updateSettings = (settings: { rounds?: number; categories?: string[] }) => _publishAction({ type: 'UPDATE_SETTINGS', payload: settings });
@@ -502,4 +524,5 @@ export const gameService = {
   saveDraftAnswers,
   getDraftAnswers,
   updatePlayerAvatar,
+  manualOverrideScore,
 };
