@@ -56,7 +56,7 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
         throw new Error(errorMsg);
     }
     
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyCvj6O5YVec5PMNGDLTNAWaD6iEXDQimJw"});
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
     Object.entries(roundData).forEach(([playerId, playerAnswers]) => {
