@@ -7,14 +7,15 @@ interface GameScreenProps {
   categories: string[];
   players: Player[];
   currentPlayerId: string;
+  roundDuration: number;
 }
 
-const Timer: React.FC<{ onTimeUp: () => void, roundKey: string }> = ({ onTimeUp, roundKey }) => {
-    const [seconds, setSeconds] = useState(90);
+const Timer: React.FC<{ onTimeUp: () => void, roundKey: string, duration: number }> = ({ onTimeUp, roundKey, duration }) => {
+    const [seconds, setSeconds] = useState(duration);
 
     useEffect(() => {
-        setSeconds(90); // Reset timer for new round
-    }, [roundKey]);
+        setSeconds(duration); // Reset timer for new round
+    }, [roundKey, duration]);
 
     useEffect(() => {
         if (seconds === 0) {
@@ -31,7 +32,7 @@ const Timer: React.FC<{ onTimeUp: () => void, roundKey: string }> = ({ onTimeUp,
 
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    const progress = (seconds / 90) * 100;
+    const progress = (seconds / duration) * 100;
 
     return (
         <div className="w-full">
@@ -46,7 +47,7 @@ const Timer: React.FC<{ onTimeUp: () => void, roundKey: string }> = ({ onTimeUp,
     );
 };
 
-const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, currentPlayerId }) => {
+const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, currentPlayerId, roundDuration }) => {
   const [answers, setAnswers] = useState<PlayerAnswers>(() => {
     return gameService.getDraftAnswers() || categories.reduce((acc, cat) => ({ ...acc, [cat]: '' }), {});
   });
@@ -117,7 +118,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
                         <h1 key={letter} className="text-9xl font-black text-cyan-400 animate-fade-in-scale-up">{letter}</h1>
                     </div>
                     <div className="w-full md:w-1/2">
-                       <Timer onTimeUp={handleStop} roundKey={letter} />
+                       <Timer onTimeUp={handleStop} roundKey={letter} duration={roundDuration} />
                     </div>
                 </div>
 

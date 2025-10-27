@@ -11,7 +11,6 @@ interface ScoringScreenProps {
 const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNextRound }) => {
   const [isConfirmingEndGame, setIsConfirmingEndGame] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState<{ playerId: string; category: string } | null>(null);
-  // FIX: Initialize useRef with null to be more explicit and avoid potential type errors.
   const longPressTimer = useRef<number | null>(null);
 
   const handlePressStart = (playerId: string, category: string) => {
@@ -39,7 +38,7 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
   };
 
   const scoresCalculated = !!game.lastRoundScores;
-
+  
   if (!scoresCalculated) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 sm:p-6">
@@ -51,6 +50,8 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
       </div>
     )
   }
+  
+  const sortedPlayers = [...game.players].sort((a, b) => b.score - a.score);
 
   // All players have submitted and scores are in, show results.
   return (
@@ -74,6 +75,7 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
             <table className="w-full text-right border-collapse">
                 <thead>
                     <tr className="border-b-2 border-gray-700">
+                        <th className="p-3 text-lg font-bold">الترتيب</th>
                         <th className="p-3 text-lg font-bold">اللاعب</th>
                         {game.categories.map(cat => <th key={cat} className="p-3 text-lg font-bold">{cat}</th>)}
                         <th className="p-3 text-lg font-bold text-yellow-400">نقاط الجولة</th>
@@ -81,8 +83,9 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
                     </tr>
                 </thead>
                 <tbody>
-                    {game.players.map(player => (
+                    {sortedPlayers.map((player, index) => (
                         <tr key={player.id} className="border-b border-gray-700 last:border-b-0">
+                            <td className="p-3 font-bold text-xl text-center text-gray-300">{index + 1}</td>
                             <td className="p-3 font-bold text-lg">
                               <div className="flex items-center gap-3">
                                 <img src={player.avatarUrl} alt={player.name} className="w-10 h-10 rounded-full object-cover bg-gray-600" />
@@ -139,20 +142,20 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
         </div>
 
         {/* Scoring Rules Section */}
-        <div className="mt-8 p-6 bg-gray-700/50 rounded-lg border border-gray-600">
-          <h3 className="text-xl font-bold text-center text-cyan-300 mb-4">طريقة احتساب النقاط</h3>
-          <div className="flex flex-col md:flex-row justify-around items-center gap-4 text-center">
-              <div className="p-4 bg-gray-800 rounded-lg w-full md:w-1/3">
-                  <p className="text-3xl font-black text-green-400">10 ⭐</p>
-                  <p className="text-gray-300">إجابة صحيحة وفريدة</p>
+        <div className="mt-6 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+          <h3 className="text-base font-bold text-center text-cyan-300 mb-2">طريقة احتساب النقاط</h3>
+          <div className="flex flex-col sm:flex-row justify-around items-center gap-2 text-center">
+              <div className="p-1 bg-gray-800 rounded-lg w-full sm:w-1/3">
+                  <p className="text-xl font-black text-green-400">10 ⭐</p>
+                  <p className="text-gray-400 text-xs">إجابة صحيحة وفريدة</p>
               </div>
-              <div className="p-4 bg-gray-800 rounded-lg w-full md:w-1/3">
-                  <p className="text-3xl font-black text-yellow-400">5 ✅</p>
-                  <p className="text-gray-300">إجابة صحيحة ومكررة</p>
+              <div className="p-1 bg-gray-800 rounded-lg w-full sm:w-1/3">
+                  <p className="text-xl font-black text-yellow-400">5 ✅</p>
+                  <p className="text-gray-400 text-xs">إجابة صحيحة ومكررة</p>
               </div>
-              <div className="p-4 bg-gray-800 rounded-lg w-full md:w-1/3">
-                  <p className="text-3xl font-black text-red-400">0 ❌</p>
-                  <p className="text-gray-300">إجابة خاطئة أو فارغة</p>
+              <div className="p-1 bg-gray-800 rounded-lg w-full sm:w-1/3">
+                  <p className="text-xl font-black text-red-400">0 ❌</p>
+                  <p className="text-gray-400 text-xs">إجابة خاطئة أو فارغة</p>
               </div>
           </div>
         </div>

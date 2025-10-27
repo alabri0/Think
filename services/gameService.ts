@@ -1,4 +1,3 @@
-
 import mqtt from 'mqtt';
 import { Game, GameState, Player, PlayerAnswers, RoundData, RoundScores, ValidationResult } from '../types';
 import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
@@ -48,7 +47,6 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    // FIX: Use environment variable for API key as per guidelines.
     const ai = new GoogleGenAI({ apiKey: "AIzaSyCvj6O5YVec5PMNGDLTNAWaD6iEXDQimJw" });
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
@@ -169,9 +167,10 @@ const _handleHostActions = async (topic: string, message: any) => {
                  break;
             }
             case 'UPDATE_SETTINGS': {
-                const { rounds, categories } = action.payload;
+                const { rounds, categories, roundDuration } = action.payload;
                 if (rounds) newGame.totalRounds = rounds;
                 if (categories) newGame.categories = categories;
+                if (roundDuration) newGame.roundDuration = roundDuration;
                 break;
             }
             case 'START_GAME': {
@@ -247,7 +246,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                     newGame.gameState = GameState.SPINNING;
                     newGame.currentLetter = '';
                     newGame.roundData = {};
-                    newGame.lastRoundScores = {};
+                    newGame.lastRoundScores = undefined;
                     newGame.roundValidation = {};
                     newGame.aiError = undefined;
                 }
@@ -293,7 +292,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                 newGame.usedLetters = [];
                 newGame.currentLetter = '';
                 newGame.roundData = {};
-                newGame.lastRoundScores = {};
+                newGame.lastRoundScores = undefined;
                 newGame.roundValidation = {};
                 newGame.players = newGame.players.map(p => ({ ...p, score: 0 }));
                 newGame.aiError = undefined;
@@ -426,7 +425,7 @@ const createGame = async (playerName: string): Promise<void> => {
 
     game = {
         gameCode, gameState: GameState.LOBBY, players: [hostPlayer], categories: CORE_CATEGORIES,
-        totalRounds: 5, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {},
+        totalRounds: 5, roundDuration: 90, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {},
     };
 
     await _connect(gameCode, playerId, () => {
@@ -450,7 +449,7 @@ const joinGame = async (gameCode: string, playerName: string): Promise<void> => 
         
         game = {
             gameCode, gameState: GameState.LOBBY, players: [newPlayer], categories: [], 
-            totalRounds: 0, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
+            totalRounds: 0, roundDuration: 90, currentRound: 0, currentLetter: '', usedLetters: [], roundData: {}
         };
         _notify();
         _publishAction({ type: 'PLAYER_JOIN', payload: newPlayer });
@@ -489,7 +488,7 @@ const manualOverrideScore = (playerId: string, category: string, newScore: 10 | 
     _publishAction({ type: 'MANUAL_OVERRIDE_SCORE', payload: { playerId, category, newScore } });
 };
 
-const updateSettings = (settings: { rounds?: number; categories?: string[] }) => _publishAction({ type: 'UPDATE_SETTINGS', payload: settings });
+const updateSettings = (settings: { rounds?: number; categories?: string[], roundDuration?: number }) => _publishAction({ type: 'UPDATE_SETTINGS', payload: settings });
 const startGame = () => _publishAction({ type: 'START_GAME' });
 const chooseLetter = (letter: string) => _publishAction({ type: 'CHOOSE_LETTER', payload: { letter }});
 const nextRound = () => _publishAction({ type: 'NEXT_ROUND' });

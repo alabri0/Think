@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GameState, Game, Player, PlayerAnswers } from './types';
 import { gameService } from './services/gameService';
@@ -89,6 +88,7 @@ const App: React.FC = () => {
                   categories={game.categories} 
                   players={game.players}
                   currentPlayerId={currentPlayer.id}
+                  roundDuration={game.roundDuration}
                 />;
       case GameState.SCORING:
         return <ScoringScreen 

@@ -39,6 +39,7 @@ export interface Game {
     players: Player[];
     categories: string[];
     totalRounds: number;
+    roundDuration: number;
     currentRound: number;
     currentLetter: string;
     usedLetters: string[];
