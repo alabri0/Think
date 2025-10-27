@@ -45,4 +45,5 @@ export interface Game {
     roundData: RoundData;
     lastRoundScores?: RoundScores;
     roundValidation?: { [playerId: string]: { [category: string]: ValidationResult } };
+    aiError?: string;
 }

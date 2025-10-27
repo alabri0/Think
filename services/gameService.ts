@@ -47,19 +47,10 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    const apiKey = process.env.API_KEY;
+    const apiKey = process['env']['API_KEY'];
     if (!apiKey) {
         console.error("API_KEY is not set.");
-        const roundScores: RoundScores = {};
-        const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
-        Object.keys(roundData).forEach(playerId => {
-            roundScores[playerId] = 0;
-            validationDetails[playerId] = {};
-            categories.forEach(cat => {
-                validationDetails[playerId][cat] = { isValid: false, score: 0 };
-            });
-        });
-        return { roundScores, validationDetails };
+        throw new Error("لم يتم تعيين مفتاح API. يرجى التأكد من تكوينه بشكل صحيح.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -148,16 +139,7 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
         return { roundScores, validationDetails };
     } catch (error) {
         console.error("AI validation failed:", error);
-        const roundScores: RoundScores = {};
-        const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
-        Object.keys(roundData).forEach(playerId => {
-            roundScores[playerId] = 0;
-             validationDetails[playerId] = {};
-            categories.forEach(cat => {
-                validationDetails[playerId][cat] = { isValid: false, score: 0};
-            })
-        });
-        return { roundScores, validationDetails };
+        throw new Error("فشل التحقق من صحة الذكاء الاصطناعي. يرجى التحقق من مفتاح API واتصال الشبكة.");
     }
 };
 
@@ -220,19 +202,37 @@ const _handleHostActions = async (topic: string, message: any) => {
 
                 if (allSubmitted) {
                     newGame.gameState = GameState.SCORING; 
+                    newGame.aiError = undefined;
                     game = newGame;
                     _publishState(); 
 
-                    const { roundScores, validationDetails } = await _validateAnswers(game.roundData, game.categories, game.currentLetter);
-                    
-                    const finalGame = { ...game };
-                    finalGame.lastRoundScores = roundScores;
-                    finalGame.roundValidation = validationDetails;
-                    finalGame.players = finalGame.players.map(p => ({
-                        ...p,
-                        score: p.score + (roundScores[p.id] || 0)
-                    }));
-                    newGame = finalGame;
+                    try {
+                        const { roundScores, validationDetails } = await _validateAnswers(game.roundData, game.categories, game.currentLetter);
+                        
+                        const finalGame = { ...game };
+                        finalGame.lastRoundScores = roundScores;
+                        finalGame.roundValidation = validationDetails;
+                        finalGame.players = finalGame.players.map(p => ({
+                            ...p,
+                            score: p.score + (roundScores[p.id] || 0)
+                        }));
+                        newGame = finalGame;
+                    } catch (e: any) {
+                         // AI failed, let's give everyone 0 points for the round and show an error.
+                        const roundScores: RoundScores = {};
+                        Object.keys(newGame.roundData).forEach(pid => {
+                            roundScores[pid] = 0;
+                        });
+
+                        newGame.lastRoundScores = roundScores;
+                        newGame.roundValidation = {}; // No validation details
+                        // Players scores don't change
+                        newGame.players = newGame.players.map(p => ({
+                            ...p,
+                            score: p.score // no change
+                        }));
+                        newGame.aiError = e.message || 'حدث خطأ غير معروف أثناء التحقق من صحة الذكاء الاصطناعي.';
+                    }
                 }
                 break;
             }
@@ -246,6 +246,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                     newGame.roundData = {};
                     newGame.lastRoundScores = {};
                     newGame.roundValidation = {};
+                    newGame.aiError = undefined;
                 }
                 break;
             }
@@ -292,6 +293,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                 newGame.lastRoundScores = {};
                 newGame.roundValidation = {};
                 newGame.players = newGame.players.map(p => ({ ...p, score: 0 }));
+                newGame.aiError = undefined;
                 break;
             }
             case 'PLAYER_LEAVE': {

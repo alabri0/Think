@@ -34,7 +34,7 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
     }
   };
 
-  const scoresCalculated = !!game.lastRoundScores && Object.keys(game.lastRoundScores).length > 0;
+  const scoresCalculated = !!game.lastRoundScores;
 
   if (!scoresCalculated) {
     return (
@@ -56,6 +56,14 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
           <h1 className="text-3xl sm:text-4xl font-black text-cyan-400">نتائج جولة <span className="text-yellow-400">"{game.currentLetter}"</span></h1>
           <p className="text-lg text-gray-400">الجولة {game.currentRound} / {game.totalRounds}</p>
         </div>
+
+        {game.aiError && (
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg text-center">
+            <h3 className="text-xl font-bold text-red-400">حدث خطأ في تقييم الذكاء الاصطناعي</h3>
+            <p className="text-red-300 mt-1">{game.aiError}</p>
+            <p className="text-gray-400 mt-2 text-sm">تم منح 0 نقطة لجميع اللاعبين في هذه الجولة. لا يزال بإمكان المضيف تعديل النتائج يدويًا.</p>
+          </div>
+        )}
 
         {/* Results Table */}
         <div className="overflow-x-auto">

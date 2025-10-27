@@ -1,5 +1,3 @@
-
-// Fix: Corrected the import statement to properly import React and its hooks.
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Player, PlayerAnswers } from '../types';
 import { gameService } from '../services/gameService';
