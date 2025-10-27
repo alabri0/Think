@@ -48,9 +48,8 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    // The API key is obtained exclusively from the environment variable `process.env.API_KEY`.
-    // This variable is assumed to be pre-configured and accessible.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // FIX: Use environment variable for API key as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyCvj6O5YVec5PMNGDLTNAWaD6iEXDQimJw" });
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
     Object.entries(roundData).forEach(([playerId, playerAnswers]) => {

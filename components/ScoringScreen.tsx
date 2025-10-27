@@ -11,7 +11,8 @@ interface ScoringScreenProps {
 const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNextRound }) => {
   const [isConfirmingEndGame, setIsConfirmingEndGame] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState<{ playerId: string; category: string } | null>(null);
-  const longPressTimer = useRef<number>();
+  // FIX: Initialize useRef with null to be more explicit and avoid potential type errors.
+  const longPressTimer = useRef<number | null>(null);
 
   const handlePressStart = (playerId: string, category: string) => {
     // Only host can override, and only on non-empty answers that have been validated
@@ -24,7 +25,10 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
   };
 
   const handlePressEnd = () => {
-    clearTimeout(longPressTimer.current);
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
   };
 
   const handleScoreOverride = (newScore: 10 | 5 | 0) => {
@@ -114,7 +118,6 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
                                     key={category} 
                                     className={cellStyle}
                                     onMouseDown={() => handlePressStart(player.id, category)}
-                                    // Fix: The event handler was incorrectly expecting an argument. Wrapping it in an arrow function resolves the issue.
                                     onMouseUp={() => handlePressEnd()}
                                     onMouseLeave={() => handlePressEnd()}
                                     onTouchStart={() => handlePressStart(player.id, category)}
