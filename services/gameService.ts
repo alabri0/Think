@@ -47,13 +47,8 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    const apiKey = process['env']['API_KEY'];
-    if (!apiKey) {
-        console.error("API_KEY is not set.");
-        throw new Error("لم يتم تعيين مفتاح API. يرجى التأكد من تكوينه بشكل صحيح.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // The API key is assumed to be available in the execution environment via process.env.API_KEY.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
     Object.entries(roundData).forEach(([playerId, playerAnswers]) => {
@@ -120,8 +115,15 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
                 }
             }
         });
+        
+        let responseText = response.text.trim();
+        if (responseText.startsWith('```json')) {
+            responseText = responseText.substring(7, responseText.length - 3).trim();
+        } else if (responseText.startsWith('```')) {
+             responseText = responseText.substring(3, responseText.length - 3).trim();
+        }
 
-        const validationData = JSON.parse(response.text.trim()).results;
+        const validationData = JSON.parse(responseText).results;
         const roundScores: RoundScores = {};
         const validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } = {};
         Object.keys(roundData).forEach(pid => {
@@ -137,9 +139,10 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
         });
         
         return { roundScores, validationDetails };
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI validation failed:", error);
-        throw new Error("فشل التحقق من صحة الذكاء الاصطناعي. يرجى التحقق من مفتاح API واتصال الشبكة.");
+        // Provide a more specific error message back to the user interface.
+        throw new Error(`فشل تقييم الذكاء الاصطناعي: ${error.message}. يرجى التحقق من صحة مفتاح API.`);
     }
 };
 
