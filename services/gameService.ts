@@ -1,3 +1,4 @@
+
 import mqtt from 'mqtt';
 import { Game, GameState, Player, PlayerAnswers, RoundData, RoundScores, ValidationResult } from '../types';
 import { ARABIC_LETTERS, CORE_CATEGORIES } from '../constants';
@@ -48,6 +49,13 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
     // The API key is assumed to be available in the execution environment via process.env.API_KEY.
+    // On platforms like Vercel, this won't be exposed to the client-side for security reasons.
+    if (!process.env.API_KEY) {
+        const errorMsg = 'مفتاح API الخاص بـ Google AI غير متوفر. لا يمكن التحقق من الإجابات. تأكد من أن متغير البيئة API_KEY تم إعداده بشكل صحيح في بيئة النشر الخاصة بك.';
+        console.error("Google AI API Key is missing. Ensure the API_KEY environment variable is set correctly and exposed to the client-side if necessary (note: this is insecure). The recommended approach is to use a serverless function.");
+        throw new Error(errorMsg);
+    }
+    
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
