@@ -185,10 +185,11 @@ const _handleHostActions = async (topic: string, message: any) => {
                 newGame.gameState = GameState.PLAYING;
                 newGame.players = newGame.players.map(p => ({ ...p, answersSubmitted: false }));
                 newGame.roundData = {};
+                newGame.roundStopperId = undefined;
                 break;
             }
             case 'END_ROUND': {
-                const { playerId, answers } = action.payload;
+                const { playerId, answers, cause } = action.payload;
                 const player = newGame.players.find(p => p.id === playerId);
 
                 if (player && !player.answersSubmitted) {
@@ -197,6 +198,11 @@ const _handleHostActions = async (topic: string, message: any) => {
 
                     if (game?.gameState === GameState.PLAYING) {
                         newGame.gameState = GameState.SCORING;
+                        if (cause === 'player') {
+                            newGame.roundStopperId = playerId;
+                        } else {
+                            newGame.roundStopperId = undefined;
+                        }
                     }
                 }
 
@@ -296,6 +302,7 @@ const _handleHostActions = async (topic: string, message: any) => {
                 newGame.roundValidation = {};
                 newGame.players = newGame.players.map(p => ({ ...p, score: 0 }));
                 newGame.aiError = undefined;
+                newGame.roundStopperId = undefined;
                 break;
             }
             case 'PLAYER_LEAVE': {
@@ -494,7 +501,7 @@ const chooseLetter = (letter: string) => _publishAction({ type: 'CHOOSE_LETTER',
 const nextRound = () => _publishAction({ type: 'NEXT_ROUND' });
 const endGame = () => _publishAction({ type: 'END_GAME' });
 const playAgain = () => _publishAction({ type: 'PLAY_AGAIN' });
-const endRound = (playerId: string, answers: PlayerAnswers) => _publishAction({ type: 'END_ROUND', payload: { playerId, answers } });
+const endRound = (playerId: string, answers: PlayerAnswers, cause: 'player' | 'time' = 'player') => _publishAction({ type: 'END_ROUND', payload: { playerId, answers, cause } });
 
 // --- Local Drafts ---
 const saveDraftAnswers = (answers: PlayerAnswers) => {

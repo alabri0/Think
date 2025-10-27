@@ -40,11 +40,20 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
   const scoresCalculated = !!game.lastRoundScores;
   
   if (!scoresCalculated) {
+    const stopper = game.roundStopperId ? game.players.find(p => p.id === game.roundStopperId) : null;
+    const stopperName = stopper ? stopper.name : null;
+
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-lg p-8 text-center space-y-4">
             <h1 className="text-3xl font-black text-cyan-400">يقوم الذكاء الاصطناعي بالتحقق من الإجابات...</h1>
-            <p className="text-xl text-gray-300">انتهت الجولة للجميع! انتظر قليلاً، يتم تقييم النتائج الآن.</p>
+            {stopperName ? (
+              <p className="text-xl text-gray-300">
+                <span className="font-bold text-yellow-400">{stopperName}</span> أوقف الجولة! انتظر قليلاً، يتم تقييم النتائج الآن.
+              </p>
+            ) : (
+              <p className="text-xl text-gray-300">نفذ الوقت! انتظر قليلاً، يتم تقييم النتائج الآن.</p>
+            )}
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-400 mx-auto"></div>
         </div>
       </div>

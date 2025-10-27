@@ -9,6 +9,7 @@ interface LetterSpinnerProps {
 
 const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, isHost }) => {
   const [spinning, setSpinning] = useState(false);
+  const [spinCompleted, setSpinCompleted] = useState(false);
   const [displayedLetter, setDisplayedLetter] = useState('؟');
 
   const availableLetters = useMemo(() => ARABIC_LETTERS.filter(l => !usedLetters.includes(l)), [usedLetters]);
@@ -30,6 +31,7 @@ const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, i
         clearInterval(spinInterval);
         setDisplayedLetter(chosenLetter);
         setSpinning(false);
+        setSpinCompleted(true);
         setTimeout(() => onSpinEnd(chosenLetter), 1000); 
       }
     }, 100);
@@ -38,7 +40,7 @@ const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, i
   }, [spinning, availableLetters, onSpinEnd]);
 
   const handleSpin = () => {
-    if (isHost && availableLetters.length > 0 && !spinning) {
+    if (isHost && availableLetters.length > 0 && !spinning && !spinCompleted) {
       setSpinning(true);
     } else if (availableLetters.length === 0) {
         alert("انتهت كل الحروف!");
@@ -64,10 +66,10 @@ const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, i
       {isHost && (
         <button
           onClick={handleSpin}
-          disabled={spinning}
+          disabled={spinning || spinCompleted}
           className="px-12 py-4 bg-green-600 hover:bg-green-700 rounded-lg text-2xl font-bold tracking-wider uppercase transition transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed"
         >
-          {spinning ? '...جاري الدوران' : 'اختر حرف'}
+          {spinning ? '...جاري الدوران' : (spinCompleted ? 'تم اختيار الحرف' : 'اختر حرف')}
         </button>
       )}
     </div>

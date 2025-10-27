@@ -76,10 +76,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
     setAnswers(prev => ({ ...prev, [category]: value }));
   };
 
-  const handleStop = useCallback(() => {
+  const handlePlayerStop = useCallback(() => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    gameService.endRound(currentPlayerId, answersRef.current);
+    gameService.endRound(currentPlayerId, answersRef.current, 'player');
+  }, [isSubmitting, currentPlayerId]);
+
+  const handleTimeUp = useCallback(() => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    gameService.endRound(currentPlayerId, answersRef.current, 'time');
   }, [isSubmitting, currentPlayerId]);
   
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -92,7 +98,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
         {isSubmitting && (
             <div className="absolute inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 animate-fade-in-down">
               <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-400"></div>
-              <h2 className="text-3xl font-bold text-white mt-4">تم إيقاف اللعبة!</h2>
+              <h2 className="text-3xl font-bold text-white mt-4">انتهت الجولة!</h2>
               <p className="text-xl text-gray-300">جاري إرسال إجاباتك...</p>
             </div>
         )}
@@ -118,7 +124,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
                         <h1 key={letter} className="text-9xl font-black text-cyan-400 animate-fade-in-scale-up">{letter}</h1>
                     </div>
                     <div className="w-full md:w-1/2">
-                       <Timer onTimeUp={handleStop} roundKey={letter} duration={roundDuration} />
+                       <Timer onTimeUp={handleTimeUp} roundKey={letter} duration={roundDuration} />
                     </div>
                 </div>
 
@@ -139,7 +145,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
 
                 <div className="pt-4 text-center">
                   <button 
-                    onClick={handleStop} 
+                    onClick={handlePlayerStop} 
                     disabled={isStopDisabled || isSubmitting}
                     className="w-full md:w-2/3 lg:w-1/2 mx-auto bg-red-600 hover:bg-red-700 p-4 rounded-lg text-2xl font-black tracking-wider uppercase transition transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed"
                   >

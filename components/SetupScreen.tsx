@@ -8,12 +8,17 @@ import AvatarUpload from './AvatarUpload';
 const categoryIcons: { [key: string]: React.ReactNode } = {
   'نبات': (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h1a2 2 0 002-2v-1a2 2 0 012-2h1.945M8 14h6M9 11v-1a2 2 0 012-2h2a2 2 0 012 2v1m-6 0h6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 5.25a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v.01c0 .414-.336.75-.75.75h-3a.75.75 0 01-.75-.75V5.25z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9h4.5m-4.5 3h4.5m-4.5 3h4.5m1.5-6.75V21a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75V11.25a.75.75 0 01.75-.75h4.5a.75.75 0 01.75.75z" />
     </svg>
   ),
   'حيوان': (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-       <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.25c-2.485 0-4.5-2.015-4.5-4.5s2.015-4.5 4.5-4.5 4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 8.25a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 12a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
     </svg>
   ),
   'جماد': (

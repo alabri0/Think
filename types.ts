@@ -47,4 +47,5 @@ export interface Game {
     lastRoundScores?: RoundScores;
     roundValidation?: { [playerId: string]: { [category: string]: ValidationResult } };
     aiError?: string;
+    roundStopperId?: string;
 }
