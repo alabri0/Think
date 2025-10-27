@@ -114,10 +114,11 @@ const ScoringScreen: React.FC<ScoringScreenProps> = ({ game, currentPlayer, onNe
                                     key={category} 
                                     className={cellStyle}
                                     onMouseDown={() => handlePressStart(player.id, category)}
-                                    onMouseUp={handlePressEnd}
-                                    onMouseLeave={handlePressEnd}
+                                    // Fix: The event handler was incorrectly expecting an argument. Wrapping it in an arrow function resolves the issue.
+                                    onMouseUp={() => handlePressEnd()}
+                                    onMouseLeave={() => handlePressEnd()}
                                     onTouchStart={() => handlePressStart(player.id, category)}
-                                    onTouchEnd={handlePressEnd}
+                                    onTouchEnd={() => handlePressEnd()}
                                   >
                                     <div className="flex items-center justify-end gap-2">
                                         <span>{answer}</span>

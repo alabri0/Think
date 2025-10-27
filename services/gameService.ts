@@ -48,15 +48,9 @@ const _publishAction = (action: { type: string; payload?: any }) => {
 
 // --- AI Validation ---
 const _validateAnswers = async (roundData: RoundData, categories: string[], letter: string): Promise<{ roundScores: RoundScores, validationDetails: { [playerId: string]: { [category: string]: ValidationResult } } }> => {
-    // The API key is assumed to be available in the execution environment via process.env.API_KEY.
-    // On platforms like Vercel, this won't be exposed to the client-side for security reasons.
-    if (!process.env.API_KEY) {
-        const errorMsg = 'مفتاح API الخاص بـ Google AI غير متوفر. لا يمكن التحقق من الإجابات. تأكد من أن متغير البيئة API_KEY تم إعداده بشكل صحيح في بيئة النشر الخاصة بك.';
-        console.error("Google AI API Key is missing. Ensure the API_KEY environment variable is set correctly and exposed to the client-side if necessary (note: this is insecure). The recommended approach is to use a serverless function.");
-        throw new Error(errorMsg);
-    }
-    
-    const ai = new GoogleGenAI({ apiKey: "AIzaSyCvj6O5YVec5PMNGDLTNAWaD6iEXDQimJw"});
+    // The API key is obtained exclusively from the environment variable `process.env.API_KEY`.
+    // This variable is assumed to be pre-configured and accessible.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const allAnswers: {playerId: string, category: string, answer: string}[] = [];
     Object.entries(roundData).forEach(([playerId, playerAnswers]) => {
@@ -149,8 +143,7 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
         return { roundScores, validationDetails };
     } catch (error: any) {
         console.error("AI validation failed:", error);
-        // Provide a more specific error message back to the user interface.
-        throw new Error(`فشل تقييم الذكاء الاصطناعي: ${error.message}. يرجى التحقق من صحة مفتاح API.`);
+        throw new Error(`فشل تقييم الذكاء الاصطناعي: ${error.message}.`);
     }
 };
 
