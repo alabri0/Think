@@ -1,0 +1,17 @@
+{
+  "name": "لعبة نبات حيوان جماد بلاد",
+  "short_name": "نبات حيوان",
+  "description": "An interactive party game for 'Plant, Animal, Inanimate Object, Country'. Spin the wheel to get a letter, fill in the categories, and score points to win. Fun for groups, families, and friends.",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#111827",
+  "background_color": "#1f2937"
+}
