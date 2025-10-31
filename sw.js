@@ -1,8 +1,11 @@
 
-const CACHE_NAME = 'insaan-hayawaan-cache-v1';
+const CACHE_NAME = 'insaan-hayawaan-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/index.tsx',
+  '/vite.svg',
+  '/manifest.json',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap',
 ];
@@ -31,7 +34,7 @@ self.addEventListener('fetch', (event) => {
             return fetch(event.request)
                 .then((response) => {
                     // If we got a valid response, clone it and store it in the cache.
-                    if (response.status === 200) {
+                    if (response && response.status === 200) {
                         cache.put(event.request, response.clone());
                     }
                     return response;
