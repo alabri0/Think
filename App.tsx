@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GameState, Game, Player, PlayerAnswers } from './types';
 import { gameService } from './services/gameService';
+import { soundService } from './services/soundService';
 import HomeScreen from './components/HomeScreen';
 import LobbyScreen from './components/SetupScreen';
 import LetterSpinner from './components/LetterSpinner';
@@ -13,6 +14,7 @@ const App: React.FC = () => {
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
+  const previousGameState = useRef<GameState | null>(null);
 
   useEffect(() => {
     const handleGameUpdate = (newGame: Game | null) => {
@@ -50,6 +52,31 @@ const App: React.FC = () => {
       gameService.unsubscribe(handleGameUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (game && game.gameState !== previousGameState.current) {
+      switch (game.gameState) {
+        case GameState.PLAYING:
+          // Check if we came from SPINNING
+          if (previousGameState.current === GameState.SPINNING) {
+            soundService.playRoundStart();
+          }
+          break;
+        case GameState.SCORING:
+          // This will play when the component first appears with scores
+          if (game.lastRoundScores) {
+              soundService.playScoreTally();
+          }
+          break;
+        case GameState.WINNER:
+          // This will play when the winner screen appears
+          soundService.playWinner();
+          break;
+      }
+      previousGameState.current = game.gameState;
+    }
+  }, [game]);
+
 
   const currentPlayer = useMemo(() => {
     if (!game || !currentPlayerId) return null;

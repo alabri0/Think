@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { gameService } from '../services/gameService';
+import { soundService } from '../services/soundService';
 
 const HomeScreen: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -17,6 +18,7 @@ const HomeScreen: React.FC = () => {
     }
     setError('');
     setIsLoading(true);
+    soundService.init(); // Initialize audio on user action
     try {
       await gameService.createGame(playerName.trim());
     } catch (e: any) {
@@ -32,6 +34,7 @@ const HomeScreen: React.FC = () => {
     }
     setError('');
     setIsLoading(true);
+    soundService.init(); // Initialize audio on user action
     try {
       await gameService.joinGame(gameCode.trim().toUpperCase(), playerName.trim());
     } catch (e: any) {

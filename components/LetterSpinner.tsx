@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ARABIC_LETTERS } from '../constants';
+import { soundService } from '../services/soundService';
 
 interface LetterSpinnerProps {
   onSpinEnd: (letter: string) => void;
@@ -29,6 +30,8 @@ const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, i
 
       if (spinCount >= maxSpins) {
         clearInterval(spinInterval);
+        soundService.playSpinStop();
+        soundService.playLetterSelect();
         setDisplayedLetter(chosenLetter);
         setSpinning(false);
         setSpinCompleted(true);
@@ -41,6 +44,7 @@ const LetterSpinner: React.FC<LetterSpinnerProps> = ({ onSpinEnd, usedLetters, i
 
   const handleSpin = () => {
     if (isHost && availableLetters.length > 0 && !spinning && !spinCompleted) {
+      soundService.playSpinStart();
       setSpinning(true);
     } else if (availableLetters.length === 0) {
         alert("انتهت كل الحروف!");

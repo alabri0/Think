@@ -72,18 +72,33 @@ const _validateAnswers = async (roundData: RoundData, categories: string[], lett
     }
 
     const prompt = `
-        You are the judge in an Arabic word game. The letter for this round is "${letter}".
+        You are an expert judge for the Arabic word game 'Nabat, Hayawan, Jamad, Bilad'.
+        The letter for this round is "${letter}".
         The categories are: ${categories.join(', ')}.
-        Validate each answer based on these rules:
-        1.  The word must be a real, known Arabic word that fits the category.
-        2.  The word must start with the letter "${letter}".
-        3.  Score 10 points for a valid, unique answer in a category.
-        4.  Score 5 points for a valid, but duplicated answer in a category.
-        5.  Score 0 for an invalid answer (wrong letter, wrong category, not a real word, etc.) or an empty answer.
-        
-        Return a JSON object with a single key "results", an array of objects. Each object must have "playerId", "category", "answer", "isValid" (boolean), and "score" (10, 5, or 0).
-        
-        Answers: ${JSON.stringify(allAnswers)}
+
+        You will receive a JSON list of all answers submitted by all players for this round. Your task is to validate each answer and assign a score.
+
+        Follow these steps precisely:
+        1.  **Validation:** For each submitted answer, determine if it is valid. An answer is valid if it meets ALL of the following criteria:
+            a. It is a real, commonly known Arabic word.
+            b. It correctly fits the specified category.
+            c. It starts with the letter "${letter}".
+
+        2.  **Scoring:** After validating the answers, assign scores based on these rules:
+            - **Invalid Answer (0 points):** If an answer is invalid for any reason (wrong letter, wrong category, not a real word) or empty, it gets 0 points.
+            - **Valid & Duplicated Answer (5 points):** Look at all VALID answers within a single category. If two or more players submit the same valid answer for the SAME category, EACH of those players receives 5 points for that answer.
+            - **Valid & Unique Answer (10 points):** If a player's valid answer for a category was not submitted by any other player for that same category, they receive 10 points.
+
+        Return a JSON object with a single key "results". This key should contain an array of objects, where each object represents a single answer and has the following structure:
+        {
+          "playerId": "string",
+          "category": "string",
+          "answer": "string",
+          "isValid": boolean,
+          "score": number (must be 10, 5, or 0)
+        }
+
+        Here are the answers to process: ${JSON.stringify(allAnswers)}
     `;
 
     try {

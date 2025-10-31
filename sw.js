@@ -1,10 +1,10 @@
 
-const CACHE_NAME = 'insaan-hayawaan-cache-v2';
+const CACHE_NAME = 'insaan-hayawaan-cache-v3';
 const urlsToCache = [
   '/',
   '/index.html',
   '/index.tsx',
-  '/vite.svg',
+  '/icon.svg',
   '/manifest.json',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Player, PlayerAnswers } from '../types';
 import { gameService } from '../services/gameService';
+import { soundService } from '../services/soundService';
 
 interface GameScreenProps {
   letter: string;
@@ -34,14 +35,20 @@ const Timer: React.FC<{ onTimeUp: () => void, roundKey: string, duration: number
     const remainingSeconds = seconds % 60;
     const progress = (seconds / duration) * 100;
 
+    // Visual cues for low time
+    const isTimeLow = seconds <= 10 && seconds > 0;
+    const timeTextColor = isTimeLow ? 'text-red-400 font-bold' : 'text-cyan-300';
+    const timerBarClasses = `h-4 rounded-full transition-all duration-1000 linear ${isTimeLow ? 'bg-red-500 animate-pulse' : 'bg-cyan-500'}`;
+
+
     return (
         <div className="w-full">
             <div className="flex justify-between mb-1">
-                <span className="text-base font-medium text-cyan-300">الوقت المتبقي</span>
-                <span className="text-sm font-medium text-cyan-300">{`${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`}</span>
+                <span className={`text-base font-medium ${timeTextColor} transition-colors duration-300`}>الوقت المتبقي</span>
+                <span className={`text-sm font-medium ${timeTextColor} transition-colors duration-300`}>{`${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`}</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-4">
-                <div className="bg-cyan-500 h-4 rounded-full transition-all duration-1000 linear" style={{ width: `${progress}%` }}></div>
+                <div className={timerBarClasses} style={{ width: `${progress}%` }}></div>
             </div>
         </div>
     );
@@ -78,12 +85,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ letter, categories, players, cu
 
   const handlePlayerStop = useCallback(() => {
     if (isSubmitting) return;
+    soundService.playRoundEnd();
     setIsSubmitting(true);
     gameService.endRound(currentPlayerId, answersRef.current, 'player');
   }, [isSubmitting, currentPlayerId]);
 
   const handleTimeUp = useCallback(() => {
     if (isSubmitting) return;
+    soundService.playRoundEnd();
     setIsSubmitting(true);
     gameService.endRound(currentPlayerId, answersRef.current, 'time');
   }, [isSubmitting, currentPlayerId]);
